@@ -1,0 +1,196 @@
+CREATE TABLE Customer (
+    CustomerID INT PRIMARY KEY,
+    Name VARCHAR2(100),
+    Phone VARCHAR2(20),
+    Email VARCHAR2(100),
+    Address VARCHAR2(200)
+);
+
+CREATE TABLE Car (
+    CarID INT PRIMARY KEY,
+    Model VARCHAR2(100),
+    Year INT,
+    Status VARCHAR2(20),
+    DailyPrice NUMBER(10,2)
+);
+
+CREATE TABLE Employee (
+    EmployeeID INT PRIMARY KEY,
+    Name VARCHAR2(100),
+    Phone VARCHAR2(20),
+    Position VARCHAR2(50)
+);
+
+CREATE TABLE Rental (
+    RentalID INT PRIMARY KEY,
+    CustomerID INT,
+    CarID INT,
+    EmployeeID INT,
+    StartDate DATE,
+    EndDate DATE,
+    TotalCost NUMBER(10,2),
+    FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID),
+    FOREIGN KEY (CarID) REFERENCES Car(CarID),
+    FOREIGN KEY (EmployeeID) REFERENCES Employee(EmployeeID)
+);
+
+CREATE TABLE Payment (
+    PaymentID INT PRIMARY KEY,
+    RentalID INT,
+    PaymentDate DATE,
+    Amount NUMBER(10,2),
+    Method VARCHAR2(50),
+    FOREIGN KEY (RentalID) REFERENCES Rental(RentalID)
+);
+
+-- INSERT
+
+-- CUSTOMER
+INSERT INTO Customer (CustomerID, Name, Phone, Email, Address) 
+VALUES (1, 'Ahmed Salah', '01012345678', 'ahmed.salah@gmail.com', 'Cairo, Egypt');
+
+INSERT INTO Customer (CustomerID, Name, Phone, Email, Address) 
+VALUES (2, 'Sara Mohamed', '01087654321', 'sara.mohamed@gmail.com', 'Giza, Egypt');
+
+INSERT INTO Customer (CustomerID, Name, Phone, Email, Address) 
+VALUES (3, 'John Smith', '01555554321', 'john.smith@yahoo.com', 'Hurghada, Egypt');
+
+-- CAR
+INSERT INTO Car (CarID, Model, Year, Status, DailyPrice) 
+VALUES (1, 'Toyota Corolla', 2024, 'Available', 450.00);
+
+INSERT INTO Car (CarID, Model, Year, Status, DailyPrice) 
+VALUES (2, 'Hyundai Elantra', 2021, 'Rented', 500.00);
+
+INSERT INTO Car (CarID, Model, Year, Status, DailyPrice) 
+VALUES (3, 'BMW X3', 2019, 'Available', 1200.00);
+
+-- EMPLOYEE
+INSERT INTO Employee (EmployeeID, Name, Phone, Position) 
+VALUES (1, 'Omar Adel', '01123456789', 'Manager');
+
+INSERT INTO Employee (EmployeeID, Name, Phone, Position) 
+VALUES (2, 'Mona Sameh', '01223456789', 'Sales Agent');
+
+INSERT INTO Employee (EmployeeID, Name, Phone, Position) 
+VALUES (3, 'Karim Tarek', '01010999994', 'Support Agent');
+
+-- RENTAL
+
+INSERT INTO Rental (RentalID, CustomerID, CarID, EmployeeID, StartDate, EndDate, TotalCost) 
+VALUES (1, 1, 2, 2, '05-DEC-25', '08-DEC-25', 1500.00);
+
+
+INSERT INTO Rental (RentalID, CustomerID, CarID, EmployeeID, StartDate, EndDate, TotalCost) 
+VALUES (2, 2, 1, 1, '10-NOV-25', '12-NOV-25', 900.00);
+
+
+INSERT INTO Rental (RentalID, CustomerID, CarID, EmployeeID, StartDate, EndDate, TotalCost) 
+VALUES (3, 3, 3, 3, '01-OCT-25', '05-OCT-25', 4800.00);
+
+-- PAYMENT
+INSERT INTO Payment (PaymentID, RentalID, PaymentDate, Amount, Method) 
+VALUES (1, 1, '08-DEC-25', 1500.00, 'Credit Card');
+
+INSERT INTO Payment (PaymentID, RentalID, PaymentDate, Amount, Method) 
+VALUES (2, 2, '12-NOV-25', 900.00, 'Cash');
+
+INSERT INTO Payment (PaymentID, RentalID, PaymentDate, Amount, Method) 
+VALUES (3, 3, '05-OCT-25', 4800.00, 'Bank Transfer');
+
+COMMIT;
+
+
+-- code used for forms
+
+-- 1st button
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*)
+    INTO v_count
+    FROM CUSTOMER
+    WHERE CUSTOMERID = :CUSTOMER.CUSTOMERID;
+
+    IF v_count = 0 THEN
+        COMMIT_FORM;
+    END IF;
+
+    GO_ITEM('RENTAL.CARID');
+END;
+
+
+-- sequences
+create sequence rent_seq
+ start with 4
+ increment by 1;
+
+
+-- PL/ SQL of forms
+
+-- 2nd button
+
+DECLARE
+    price NUMBER;
+BEGIN
+        SELECT DAILYPRICE
+        INTO price
+        FROM CAR
+        WHERE CARID = :RENTAL.CARID;
+        
+        
+        :RENTAL.COST :=  price * :RENTAL.DAYS;
+        :GLOBAL.TCOST := :RENTAL.COST;
+				
+        GO_ITEM('PAYMENT.PAYMENT_METHOD');
+END;
+
+
+
+-- 3rd button
+DECLARE
+    v_rental_id   NUMBER;
+    v_customer_id NUMBER;
+    b NUMBER;
+BEGIN
+    v_customer_id := :CUSTOMER.CUSTOMERID;
+
+    GO_BLOCK('CUSTOMER');
+
+    IF :SYSTEM.RECORD_STATUS = 'INSERT' THEN
+        CLEAR_RECORD;
+    END IF;
+		
+    SELECT rent_seq.NEXTVAL
+    INTO v_rental_id
+    FROM dual;
+
+    INSERT INTO RENTAL
+        (RENTALID, CUSTOMERID, CARID, EMPLOYEEID, STARTDATE, ENDDATE, TOTALCOST)
+    VALUES
+        (v_rental_id,
+         v_customer_id,
+         :RENTAL.CARID,
+         2,
+         SYSDATE,
+         SYSDATE + :RENTAL.DAYS,
+         :GLOBAL.TCOST);
+
+    INSERT INTO PAYMENT
+        (PAYMENTID, RENTALID, PAYMENTDATE, AMOUNT, METHOD)
+    VALUES
+        (v_rental_id,
+         v_rental_id,
+         SYSDATE,
+         :GLOBAL.TCOST,
+         :PAYMENT.PAYMENT_METHOD);
+
+    COMMIT;
+
+		b := show_alert('ALERT106');
+
+    CLEAR_FORM(NO_VALIDATE);
+    GO_ITEM('CUSTOMER.CUSTOMERID');
+END;
+
+
